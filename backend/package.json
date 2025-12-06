@@ -1,0 +1,21 @@
+{
+  "name": "demol",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/{index.js,functions/*.js}",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No tests yet...\"",
+    "build": "echo \"No build step needed\""
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.2.0",
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "azure-functions-core-tools": "^4.x"
+  }
+}

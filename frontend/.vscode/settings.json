@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/9b8ae1b9-a0f6-4e59-9c0f-e3f769e24d34/resourceGroups/rg-demol/providers/Microsoft.Web/sites/demol-webapp",
+    "appService.deploySubpath": "."
+}
