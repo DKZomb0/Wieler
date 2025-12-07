@@ -8,14 +8,14 @@ const databaseId = "demol";
 const racesContainerId = "RaceResults";
 const client = new CosmosClient({ endpoint, key });
 
-function getAnnouncerName(request) {
-    const announcer = request.headers.get("x-user-name");
-    if (!announcer) {
+function getUserName(request) {
+    const owner = request.headers.get("x-user-name");
+    if (!owner) {
         const error = new Error("Missing user context");
         error.status = 400;
         throw error;
     }
-    return announcer;
+    return owner;
 }
 
 app.http('races', {
@@ -25,7 +25,7 @@ app.http('races', {
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
         try {
-            const announcer = getAnnouncerName(request);
+            const owner = getUserName(request);
             const database = client.database(databaseId);
             const container = database.container(racesContainerId);
 
@@ -48,10 +48,10 @@ app.http('races', {
                         query: `
                             SELECT DISTINCT c.racerName
                             FROM c
-                            WHERE c.announcer = @announcer AND CONTAINS(LOWER(c.racerName), @search)
+                            WHERE c.owner = @owner AND CONTAINS(LOWER(c.racerName), @search)
                         `,
                         parameters: [
-                            { name: "@announcer", value: announcer },
+                            { name: "@owner", value: owner },
                             { name: "@search", value: normalizedSearch.toLowerCase() }
                         ]
                     })
@@ -70,11 +70,11 @@ app.http('races', {
                     .query({
                         query: `
                             SELECT * FROM c
-                            WHERE c.announcer = @announcer AND c.racerName = @racer
+                            WHERE c.owner = @owner AND c.racerName = @racer
                             ORDER BY c.raceDate DESC
                         `,
                         parameters: [
-                            { name: "@announcer", value: announcer },
+                            { name: "@owner", value: owner },
                             { name: "@racer", value: racer }
                         ]
                     })
@@ -100,7 +100,7 @@ app.http('races', {
 
                 const entry = {
                     id: crypto.randomUUID(),
-                    announcer,
+                    owner,
                     racerName,
                     raceName,
                     score,

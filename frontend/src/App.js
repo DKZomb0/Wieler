@@ -14,7 +14,7 @@ const formatDate = (dateString) => {
 };
 
 const App = () => {
-  const [announcerName, setAnnouncerName] = useState(null);
+  const [playerName, setPlayerName] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [selectedRacer, setSelectedRacer] = useState("");
@@ -30,35 +30,35 @@ const App = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const savedName = localStorage.getItem("announcerName");
+    const savedName = localStorage.getItem("playerName");
     if (savedName) {
-      setAnnouncerName(savedName);
+      setPlayerName(savedName);
     }
   }, []);
 
   const headers = useMemo(() => {
-    if (!announcerName) return {};
+    if (!playerName) return {};
     return {
       "Content-Type": "application/json",
-      "X-User-Name": announcerName,
+      "X-User-Name": playerName,
     };
-  }, [announcerName]);
+  }, [playerName]);
 
   const handleLogin = (name) => {
-    setAnnouncerName(name);
-    localStorage.setItem("announcerName", name);
+    setPlayerName(name);
+    localStorage.setItem("playerName", name);
   };
 
   const handleLogout = () => {
-    setAnnouncerName(null);
+    setPlayerName(null);
     setSelectedRacer("");
     setRaceHistory([]);
     setSuggestions([]);
-    localStorage.removeItem("announcerName");
+    localStorage.removeItem("playerName");
   };
 
   const fetchSuggestions = async (query) => {
-    if (!announcerName) return;
+    if (!playerName) return;
 
     if (!query || query.length < 2) {
       setSuggestions([]);
@@ -140,11 +140,11 @@ const App = () => {
   };
 
   useEffect(() => {
-    if (!announcerName) return;
+    if (!playerName) return;
     fetchSuggestions(searchTerm.trim());
-  }, [searchTerm, announcerName]);
+  }, [searchTerm, playerName]);
 
-  if (!announcerName) {
+  if (!playerName) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
@@ -152,7 +152,7 @@ const App = () => {
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <p className="welcome">Welkom terug, {announcerName}</p>
+          <p className="welcome">Welkom terug, {playerName}</p>
           <h1>Wieler Uitslagenlog</h1>
           <p className="subtitle">Snel overzicht van jouw genoteerde wedstrijden en winnaars.</p>
         </div>
