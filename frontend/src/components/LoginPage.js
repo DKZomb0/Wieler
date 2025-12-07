@@ -20,12 +20,12 @@ const LoginPage = ({ onLogin }) => {
         throw new Error('Ongeldige code');
       }
 
-      const { name, role } = await response.json();
+      const { name } = await response.json();
       if (!name) {
         throw new Error('Geen naam gevonden');
       }
-      
-      onLogin(name, role);
+
+      onLogin(name);
     } catch (err) {
       setError('Ongeldige code. Probeer opnieuw.');
     }
@@ -33,7 +33,8 @@ const LoginPage = ({ onLogin }) => {
 
   return (
     <div className="container login-container">
-      <h1>De Mol App</h1>
+      <h1>Wieler Uitslagenlog</h1>
+      <p className="muted">Log in met je persoonlijke code om jouw rennersoverzicht te openen.</p>
       <form onSubmit={handleSubmit}>
         <div>
           <input
@@ -51,4 +52,4 @@ const LoginPage = ({ onLogin }) => {
   );
 };
 
-export default LoginPage; 
+export default LoginPage;
