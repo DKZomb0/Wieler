@@ -11,5 +11,33 @@
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[4.*, 5.0.0)"
+  },
+  "extensions": {
+    "http": {
+      "routePrefix": "api"
+    },
+    "durableTask": {
+      "tracing": {
+        "traceInputsAndOutputs": false
+      }
+    }
+  },
+  "functionTimeout": "00:05:00",
+  "cors": {
+    "allowedOrigins": [
+      "http://localhost:3000",
+      "https://localhost:3000"
+    ],
+    "allowedMethods": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+    "allowedHeaders": [
+      "*"
+    ],
+    "supportsCredentials": true
   }
 }

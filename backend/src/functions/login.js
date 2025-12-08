@@ -3,8 +3,13 @@ const { CosmosClient } = require("@azure/cosmos");
 
 const endpoint = process.env.COSMOS_DB_ENDPOINT;
 const key = process.env.COSMOS_DB_KEY;
-const databaseId = "demol";
+const databaseId = "wielerapp";
 const announcersContainerId = "Announcers";
+
+if (!endpoint || !key) {
+    throw new Error("COSMOS_DB_ENDPOINT and COSMOS_DB_KEY must be set");
+}
+
 const client = new CosmosClient({ endpoint, key });
 
 app.http('login', {

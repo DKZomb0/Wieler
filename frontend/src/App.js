@@ -19,11 +19,14 @@ const App = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [selectedRacer, setSelectedRacer] = useState("");
   const [raceHistory, setRaceHistory] = useState([]);
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     racerName: "",
     raceName: "",
     score: "",
     raceDate: "",
+    categorie: "",
+    team: "",
   });
   const [statusMessage, setStatusMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +46,29 @@ const App = () => {
       "X-User-Name": playerName,
     };
   }, [playerName]);
+
+  const raceNameSuggestions = useMemo(() => {
+    const unique = new Set(raceHistory.map((race) => race.raceName));
+    return Array.from(unique);
+  }, [raceHistory]);
+
+  useEffect(() => {
+    if (!formData.racerName) return;
+    // Prefill categorie and team from the most recent entry of the same racer, if available
+    const lastEntry = raceHistory.find((race) => race.racerName === formData.racerName);
+    if (!lastEntry) return;
+
+    const updates = {};
+    if (lastEntry.categorie && formData.categorie !== lastEntry.categorie) {
+      updates.categorie = lastEntry.categorie;
+    }
+    if (lastEntry.team && formData.team !== lastEntry.team) {
+      updates.team = lastEntry.team;
+    }
+    if (Object.keys(updates).length) {
+      setFormData((prev) => ({ ...prev, ...updates }));
+    }
+  }, [formData.racerName, formData.categorie, formData.team, raceHistory]);
 
   const handleLogin = (name) => {
     setPlayerName(name);
@@ -114,26 +140,41 @@ const App = () => {
       return;
     }
 
+    const parsedScore = parseInt(formData.score, 10);
+    if (Number.isNaN(parsedScore)) {
+      setError("Resultaat moet een geheel getal zijn.");
+      return;
+    }
+
     try {
-      const response = await fetch(`${config.apiBaseUrl}/api/races`, {
-        method: "POST",
+      const url = `${config.apiBaseUrl}/api/races${editingId ? `?id=${editingId}` : ""}`;
+      const method = editingId ? "PUT" : "POST";
+      const response = await fetch(url, {
+        method,
         headers,
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, score: parsedScore }),
       });
 
       if (!response.ok) {
-        throw new Error("Opslaan van race mislukt");
+        throw new Error(editingId ? "Bijwerken van race mislukt" : "Opslaan van race mislukt");
       }
 
       const newEntry = await response.json();
-      setStatusMessage(`Race voor ${newEntry.racerName} opgeslagen.`);
+      setStatusMessage(editingId ? `Race voor ${newEntry.racerName} bijgewerkt.` : `Race voor ${newEntry.racerName} opgeslagen.`);
 
-      if (selectedRacer && newEntry.racerName === selectedRacer) {
-        setRaceHistory((prev) => [newEntry, ...prev]);
-      }
+      setRaceHistory((prev) => {
+        if (editingId) {
+          return prev.map((race) => (race.id === editingId ? newEntry : race));
+        }
+        if (selectedRacer && newEntry.racerName === selectedRacer) {
+          return [newEntry, ...prev];
+        }
+        return prev;
+      });
 
       setSuggestions([]);
-      setFormData({ racerName: "", raceName: "", score: "", raceDate: "" });
+      setFormData({ racerName: "", raceName: "", score: "", raceDate: "", categorie: "", team: "" });
+      setEditingId(null);
     } catch (err) {
       setError(err.message);
     }
@@ -218,9 +259,58 @@ const App = () => {
                     <li key={race.id} className="history-item">
                       <div>
                         <p className="race-name">{race.raceName}</p>
-                        <p className="muted">{formatDate(race.raceDate)}</p>
+                        <p className="muted">
+                          {formatDate(race.raceDate)}
+                          {race.categorie ? ` • ${race.categorie}` : ""} {race.team ? `• ${race.team}` : ""}
+                        </p>
                       </div>
-                      <div className="race-score">{race.score}</div>
+                      <div className="history-actions">
+                        <span className="race-score">{race.score}</span>
+                        <div className="action-buttons">
+                          <button
+                            type="button"
+                            className="ghost"
+                            onClick={() => {
+                              setEditingId(race.id);
+                              setFormData({
+                                racerName: race.racerName,
+                                raceName: race.raceName,
+                                score: race.score,
+                                raceDate: race.raceDate,
+                                categorie: race.categorie || "",
+                                team: race.team || "",
+                              });
+                              setSelectedRacer(race.racerName);
+                            }}
+                          >
+                            Bewerken
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost danger"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`${config.apiBaseUrl}/api/races?id=${race.id}`, {
+                                  method: "DELETE",
+                                  headers,
+                                });
+                                if (!response.ok && response.status !== 204) {
+                                  throw new Error("Verwijderen mislukt");
+                                }
+                                setRaceHistory((prev) => prev.filter((item) => item.id !== race.id));
+                                if (editingId === race.id) {
+                                  setEditingId(null);
+                                  setFormData({ racerName: "", raceName: "", score: "", raceDate: "", categorie: "", team: "" });
+                                }
+                              } catch (err) {
+                                setError(err.message);
+                              }
+                            }}
+                          >
+                            Verwijderen
+                          </button>
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -243,9 +333,19 @@ const App = () => {
               <input
                 type="text"
                 value={formData.racerName}
-                onChange={(e) => setFormData({ ...formData, racerName: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, racerName: value });
+                  fetchSuggestions(value);
+                }}
                 placeholder="Bijv. Annemiek van Vleuten"
+                list="racer-name-suggestions"
               />
+              <datalist id="racer-name-suggestions">
+                {suggestions.map((name) => (
+                  <option value={name} key={`form-${name}`} />
+                ))}
+              </datalist>
             </label>
             <label>
               Wedstrijdnaam
@@ -254,15 +354,41 @@ const App = () => {
                 value={formData.raceName}
                 onChange={(e) => setFormData({ ...formData, raceName: e.target.value })}
                 placeholder="Bijv. Ronde van Vlaanderen"
+                list="race-name-suggestions"
               />
+              <datalist id="race-name-suggestions">
+                {raceNameSuggestions.map((name) => (
+                  <option value={name} key={`race-${name}`} />
+                ))}
+              </datalist>
             </label>
             <label>
-              Resultaat/Score
+              Resultaat
               <input
-                type="text"
+                type="number"
+                inputMode="numeric"
+                step="1"
                 value={formData.score}
                 onChange={(e) => setFormData({ ...formData, score: e.target.value })}
                 placeholder="Bijv. 1e plaats"
+              />
+            </label>
+            <label>
+              Categorie
+              <input
+                type="text"
+                value={formData.categorie}
+                onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
+                placeholder="Bijv. Elite, U23, Junior"
+              />
+            </label>
+            <label>
+              Team
+              <input
+                type="text"
+                value={formData.team}
+                onChange={(e) => setFormData({ ...formData, team: e.target.value })}
+                placeholder="Bijv. Team DSM"
               />
             </label>
             <label>
@@ -274,8 +400,20 @@ const App = () => {
               />
             </label>
             <button type="submit" className="primary add-button">
-              + Opslaan
+              {editingId ? "Opslaan wijzigingen" : "+ Opslaan"}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setEditingId(null);
+                  setFormData({ racerName: "", raceName: "", score: "", raceDate: "", categorie: "", team: "" });
+                }}
+              >
+                Annuleren
+              </button>
+            )}
           </form>
 
           {statusMessage && <p className="success">{statusMessage}</p>}
