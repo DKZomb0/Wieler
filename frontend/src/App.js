@@ -19,6 +19,7 @@ const App = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [selectedRacer, setSelectedRacer] = useState("");
   const [raceHistory, setRaceHistory] = useState([]);
+  const [showingRecent, setShowingRecent] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     racerName: "",
@@ -52,20 +53,35 @@ const App = () => {
     return Array.from(unique);
   }, [raceHistory]);
 
+  const prefillState = React.useRef({ lastRacer: "", applied: false });
+
   useEffect(() => {
-    if (!formData.racerName) return;
-    // Prefill categorie and team from the most recent entry of the same racer, if available
-    const lastEntry = raceHistory.find((race) => race.racerName === formData.racerName);
+    const { racerName, categorie, team } = formData;
+    if (!racerName) {
+      prefillState.current = { lastRacer: "", applied: false };
+      return;
+    }
+
+    if (prefillState.current.lastRacer !== racerName) {
+      prefillState.current = { lastRacer: racerName, applied: false };
+    }
+
+    if (prefillState.current.applied) return;
+
+    // Prefill categorie and team from the most recent entry of the same racer, once per racer
+    const lastEntry = raceHistory.find((race) => race.racerName === racerName);
     if (!lastEntry) return;
 
     const updates = {};
-    if (lastEntry.categorie && formData.categorie !== lastEntry.categorie) {
+    if (!categorie && lastEntry.categorie) {
       updates.categorie = lastEntry.categorie;
     }
-    if (lastEntry.team && formData.team !== lastEntry.team) {
+    if (!team && lastEntry.team) {
       updates.team = lastEntry.team;
     }
+
     if (Object.keys(updates).length) {
+      prefillState.current.applied = true;
       setFormData((prev) => ({ ...prev, ...updates }));
     }
   }, [formData.racerName, formData.categorie, formData.team, raceHistory]);
@@ -78,6 +94,7 @@ const App = () => {
   const handleLogout = () => {
     setPlayerName(null);
     setSelectedRacer("");
+    setShowingRecent(true);
     setRaceHistory([]);
     setSuggestions([]);
     localStorage.removeItem("playerName");
@@ -104,6 +121,24 @@ const App = () => {
     }
   };
 
+  const fetchRecentEntries = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/api/races`, { headers });
+      if (!response.ok) throw new Error("Kon recente resultaten niet laden");
+      const data = await response.json();
+      setRaceHistory(data);
+      setSelectedRacer("");
+      setShowingRecent(true);
+    } catch (err) {
+      setError(err.message);
+      setRaceHistory([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const fetchRaceHistory = async (racer) => {
     if (!racer) return;
     setIsLoading(true);
@@ -117,6 +152,7 @@ const App = () => {
       const data = await response.json();
       setRaceHistory(data);
       setSelectedRacer(racer);
+      setShowingRecent(false);
     } catch (err) {
       setError(err.message);
       setRaceHistory([]);
@@ -127,7 +163,11 @@ const App = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchRaceHistory(searchTerm.trim());
+    if (!searchTerm.trim()) {
+      fetchRecentEntries();
+    } else {
+      fetchRaceHistory(searchTerm.trim());
+    }
   };
 
   const handleAddRace = async (e) => {
@@ -184,6 +224,11 @@ const App = () => {
     if (!playerName) return;
     fetchSuggestions(searchTerm.trim());
   }, [searchTerm, playerName]);
+
+  useEffect(() => {
+    if (!playerName) return;
+    fetchRecentEntries();
+  }, [playerName]);
 
   if (!playerName) {
     return <LoginPage onLogin={handleLogin} />;
@@ -253,7 +298,7 @@ const App = () => {
             )}
             {!isLoading && raceHistory.length > 0 && (
               <>
-                <h3>Registraties voor {selectedRacer}</h3>
+                <h3>{showingRecent ? "Recente registraties" : `Registraties voor ${selectedRacer}`}</h3>
                 <ul className="history-list">
                   {raceHistory.map((race) => (
                     <li key={race.id} className="history-item">

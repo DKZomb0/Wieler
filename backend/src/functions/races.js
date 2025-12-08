@@ -92,6 +92,25 @@ app.http('races', {
                 };
             }
 
+            if (request.method === 'GET') {
+                const { resources } = await container.items
+                    .query({
+                        query: `
+                            SELECT TOP 20 * FROM c
+                            WHERE c.owner = @owner
+                            ORDER BY c.raceDate DESC
+                        `,
+                        parameters: [{ name: "@owner", value: owner }]
+                    })
+                    .fetchAll();
+
+                return {
+                    status: 200,
+                    body: JSON.stringify(resources),
+                    headers: { 'Content-Type': 'application/json' }
+                };
+            }
+
             if (request.method === 'POST') {
                 const { racerName, raceName, score, raceDate, categorie, team } = await request.json();
 
