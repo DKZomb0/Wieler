@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
 import config from "./config";
 import "./App.css";
@@ -84,7 +84,7 @@ const App = () => {
       prefillState.current.applied = true;
       setFormData((prev) => ({ ...prev, ...updates }));
     }
-  }, [formData.racerName, formData.categorie, formData.team, raceHistory]);
+  }, [formData, raceHistory]);
 
   const handleLogin = (name) => {
     setPlayerName(name);
@@ -100,7 +100,7 @@ const App = () => {
     localStorage.removeItem("playerName");
   };
 
-  const fetchSuggestions = async (query) => {
+  const fetchSuggestions = useCallback(async (query) => {
     if (!playerName) return;
 
     if (!query || query.length < 2) {
@@ -119,9 +119,9 @@ const App = () => {
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [headers, playerName]);
 
-  const fetchRecentEntries = async () => {
+  const fetchRecentEntries = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
@@ -137,7 +137,7 @@ const App = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [headers]);
 
   const fetchRaceHistory = async (racer) => {
     if (!racer) return;
@@ -223,12 +223,12 @@ const App = () => {
   useEffect(() => {
     if (!playerName) return;
     fetchSuggestions(searchTerm.trim());
-  }, [searchTerm, playerName]);
+  }, [searchTerm, playerName, fetchSuggestions]);
 
   useEffect(() => {
     if (!playerName) return;
     fetchRecentEntries();
-  }, [playerName]);
+  }, [playerName, fetchRecentEntries]);
 
   if (!playerName) {
     return <LoginPage onLogin={handleLogin} />;
