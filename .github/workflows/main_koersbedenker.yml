@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
 
@@ -28,12 +28,13 @@ jobs:
           npm install
           npm run build --if-present
           npm run test --if-present
+        working-directory: frontend
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: frontend/build
 
   deploy:
     runs-on: ubuntu-latest
@@ -61,5 +62,5 @@ jobs:
         with:
           app-name: 'koersbedenker'
           slot-name: 'Production'
-          package: .
+          package: frontend/build
           
