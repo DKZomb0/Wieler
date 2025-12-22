@@ -62,5 +62,5 @@ jobs:
         with:
           app-name: 'koersbedenker'
           slot-name: 'Production'
-          package: frontend/build
+          package: build
           
