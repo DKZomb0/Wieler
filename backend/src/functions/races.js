@@ -7,11 +7,18 @@ const key = process.env.COSMOS_DB_KEY;
 const databaseId = "wielerapp";
 const racesContainerId = "RaceResults";
 
-if (!endpoint || !key) {
-    throw new Error("COSMOS_DB_ENDPOINT and COSMOS_DB_KEY must be set");
+let client;
+function getClient() {
+    if (!client) {
+        if (!endpoint || !key) {
+            const error = new Error("COSMOS_DB_ENDPOINT and COSMOS_DB_KEY must be set");
+            error.status = 500;
+            throw error;
+        }
+        client = new CosmosClient({ endpoint, key });
+    }
+    return client;
 }
-
-const client = new CosmosClient({ endpoint, key });
 
 function getUserName(request) {
     const owner = request.headers.get("x-user-name");
@@ -31,7 +38,7 @@ app.http('races', {
         context.log(`Http function processed request for url "${request.url}"`);
         try {
             const owner = getUserName(request);
-            const database = client.database(databaseId);
+            const database = getClient().database(databaseId);
             const container = database.container(racesContainerId);
 
             const search = request.query.get('search');

@@ -1,3 +1,16 @@
 {
-    "chatgpt.openOnStartup": true
+    "chatgpt.openOnStartup": true,
+    "appService.defaultWebAppToDeploy": "/subscriptions/9b8ae1b9-a0f6-4e59-9c0f-e3f769e24d34/resourceGroups/rg-wielerapp/providers/Microsoft.Web/sites/koersbedenker",
+    "appService.deploySubpath": "frontend\\build",
+    "azureFunctions.deploySubpath": "backend",
+    "azureFunctions.postDeployTask": "npm install (functions)",
+    "azureFunctions.projectLanguage": "JavaScript",
+    "azureFunctions.projectRuntime": "~4",
+    "debug.internalConsoleOptions": "neverOpen",
+    "azureFunctions.projectLanguageModel": 4,
+    "azureFunctions.preDeployTask": "npm prune (functions)",
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}"
+    ]
 }

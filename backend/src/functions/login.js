@@ -6,11 +6,18 @@ const key = process.env.COSMOS_DB_KEY;
 const databaseId = "wielerapp";
 const announcersContainerId = "Announcers";
 
-if (!endpoint || !key) {
-    throw new Error("COSMOS_DB_ENDPOINT and COSMOS_DB_KEY must be set");
+let client;
+function getClient() {
+    if (!client) {
+        if (!endpoint || !key) {
+            const error = new Error("COSMOS_DB_ENDPOINT and COSMOS_DB_KEY must be set");
+            error.status = 500;
+            throw error;
+        }
+        client = new CosmosClient({ endpoint, key });
+    }
+    return client;
 }
-
-const client = new CosmosClient({ endpoint, key });
 
 app.http('login', {
     methods: ['POST'],
@@ -18,7 +25,7 @@ app.http('login', {
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
         try {
-            const database = client.database(databaseId);
+            const database = getClient().database(databaseId);
             const container = database.container(announcersContainerId);
 
             const { code } = await request.json();
