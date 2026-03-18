@@ -1,0 +1,72 @@
+# Builds and deploys the React frontend to Azure Web App on every branch push.
+# Required GitHub secrets:
+#   AZURE_CLIENT_ID       - Service principal application (client) ID
+#   AZURE_CLIENT_SECRET   - Service principal client secret
+#   AZURE_TENANT_ID       - Azure Active Directory tenant ID
+#   AZURE_SUBSCRIPTION_ID - Azure subscription ID
+
+name: Deploy Frontend to Azure Web App
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+        working-directory: frontend
+        env:
+          REACT_APP_API_BASE_URL: https://wieler-backend.azurewebsites.net
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: build
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'koersbedenker'
+          slot-name: 'Production'
+          package: './build'
