@@ -8,7 +8,7 @@ const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("nl-NL", {
     year: "numeric",
-    month: "long",
+    month: "short",
     day: "numeric",
   });
 };
@@ -35,10 +35,21 @@ const App = () => {
 
   useEffect(() => {
     const savedName = localStorage.getItem("playerName");
-    if (savedName) {
-      setPlayerName(savedName);
-    }
+    if (savedName) setPlayerName(savedName);
   }, []);
+
+  // Auto-dismiss toasts
+  useEffect(() => {
+    if (!statusMessage) return;
+    const t = setTimeout(() => setStatusMessage(""), 4000);
+    return () => clearTimeout(t);
+  }, [statusMessage]);
+
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(""), 5000);
+    return () => clearTimeout(t);
+  }, [error]);
 
   const headers = useMemo(() => {
     if (!playerName) return {};
@@ -61,24 +72,17 @@ const App = () => {
       prefillState.current = { lastRacer: "", applied: false };
       return;
     }
-
     if (prefillState.current.lastRacer !== racerName) {
       prefillState.current = { lastRacer: racerName, applied: false };
     }
-
     if (prefillState.current.applied) return;
 
-    // Prefill categorie and team from the most recent entry of the same racer, once per racer
     const lastEntry = raceHistory.find((race) => race.racerName === racerName);
     if (!lastEntry) return;
 
     const updates = {};
-    if (!categorie && lastEntry.categorie) {
-      updates.categorie = lastEntry.categorie;
-    }
-    if (!team && lastEntry.team) {
-      updates.team = lastEntry.team;
-    }
+    if (!categorie && lastEntry.categorie) updates.categorie = lastEntry.categorie;
+    if (!team && lastEntry.team) updates.team = lastEntry.team;
 
     if (Object.keys(updates).length) {
       prefillState.current.applied = true;
@@ -100,14 +104,17 @@ const App = () => {
     localStorage.removeItem("playerName");
   };
 
+  const cancelEdit = () => {
+    setEditingId(null);
+    setFormData({ racerName: "", raceName: "", score: "", raceDate: "", categorie: "", team: "" });
+  };
+
   const fetchSuggestions = useCallback(async (query) => {
     if (!playerName) return;
-
     if (!query || query.length < 2) {
       setSuggestions([]);
       return;
     }
-
     try {
       const response = await fetch(
         `${config.apiBaseUrl}/api/races?search=${encodeURIComponent(query)}`,
@@ -200,15 +207,15 @@ const App = () => {
       }
 
       const newEntry = await response.json();
-      setStatusMessage(editingId ? `Race voor ${newEntry.racerName} bijgewerkt.` : `Race voor ${newEntry.racerName} opgeslagen.`);
+      setStatusMessage(
+        editingId
+          ? `Race voor ${newEntry.racerName} bijgewerkt.`
+          : `Race voor ${newEntry.racerName} opgeslagen.`
+      );
 
       setRaceHistory((prev) => {
-        if (editingId) {
-          return prev.map((race) => (race.id === editingId ? newEntry : race));
-        }
-        if (selectedRacer && newEntry.racerName === selectedRacer) {
-          return [newEntry, ...prev];
-        }
+        if (editingId) return prev.map((race) => (race.id === editingId ? newEntry : race));
+        if (selectedRacer && newEntry.racerName === selectedRacer) return [newEntry, ...prev];
         return prev;
       });
 
@@ -235,236 +242,273 @@ const App = () => {
   }
 
   return (
-    <div className="app-shell">
+    <div className="page">
       <header className="app-header">
-        <div>
-          <p className="welcome">Welkom terug, {playerName}</p>
+        <div className="header-brand">
+          <span className="header-brand-icon">🚴</span>
           <h1>Wieler Uitslagenlog</h1>
-          <p className="subtitle">Snel overzicht van jouw genoteerde wedstrijden en winnaars.</p>
         </div>
-        <button onClick={handleLogout} className="logout-button">
-          Uitloggen
-        </button>
+        <div className="header-right">
+          <span className="welcome-badge">👋 {playerName}</span>
+          <button onClick={handleLogout} className="logout-button">
+            Uitloggen
+          </button>
+        </div>
       </header>
 
-      <main className="grid-layout">
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <h2>Racers opzoeken</h2>
-              <p className="muted">Typ een naam om eerdere notities terug te vinden.</p>
-            </div>
+      <main className="app-shell">
+        {/* ── History Panel ── */}
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Racers &amp; resultaten</h2>
+            <p className="muted">Zoek op naam of bekijk recente registraties.</p>
           </div>
-          <form onSubmit={handleSearch} className="search-form">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Zoek naar een renner..."
-              list="racer-suggestions"
-            />
-            <datalist id="racer-suggestions">
-              {suggestions.map((name) => (
-                <option value={name} key={name} />
-              ))}
-            </datalist>
-            <button type="submit" className="primary">
-              Zoek
-            </button>
-          </form>
+          <div className="panel-body">
+            <form onSubmit={handleSearch} className="search-bar">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Zoek naar een renner..."
+                list="racer-suggestions"
+              />
+              <datalist id="racer-suggestions">
+                {suggestions.map((name) => (
+                  <option value={name} key={name} />
+                ))}
+              </datalist>
+              <button type="submit">Zoeken</button>
+            </form>
 
-          {suggestions.length > 0 && (
-            <div className="suggestion-list">
-              {suggestions.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  className="ghost"
-                  onClick={() => {
-                    setSearchTerm(name);
-                    fetchRaceHistory(name);
-                  }}
-                >
-                  {name}
-                </button>
-              ))}
+            {suggestions.length > 0 && (
+              <div className="suggestion-pills">
+                {suggestions.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className="pill"
+                    onClick={() => {
+                      setSearchTerm(name);
+                      fetchRaceHistory(name);
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="results-header">
+              <h3>
+                {showingRecent ? "Recente registraties" : `Resultaten – ${selectedRacer}`}
+              </h3>
+              {raceHistory.length > 0 && (
+                <span className="results-count">{raceHistory.length}</span>
+              )}
+            </div>
+
+            {isLoading && (
+              <div className="loading-state">
+                <div className="skeleton" />
+                <div className="skeleton" />
+                <div className="skeleton" />
+              </div>
+            )}
+
+            {!isLoading && selectedRacer && raceHistory.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-state-icon">🔍</div>
+                <p>Geen registraties gevonden voor <strong>{selectedRacer}</strong>.</p>
+              </div>
+            )}
+
+            {!isLoading && !selectedRacer && raceHistory.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-state-icon">🏁</div>
+                <p>Nog geen registraties. Voeg de eerste race toe!</p>
+              </div>
+            )}
+
+            {!isLoading && raceHistory.length > 0 && (
+              <ul className="history-list">
+                {raceHistory.map((race) => (
+                  <li
+                    key={race.id}
+                    className={`history-item${editingId === race.id ? " editing" : ""}`}
+                  >
+                    <div className="score-badge">{race.score}</div>
+                    <div className="race-info">
+                      <p className="race-racer">{race.racerName}</p>
+                      <p className="race-meta-name">{race.raceName}</p>
+                      <div className="race-tags">
+                        {race.categorie && <span className="tag">{race.categorie}</span>}
+                        {race.team && <span className="tag">{race.team}</span>}
+                        <span className="tag tag-date">{formatDate(race.raceDate)}</span>
+                      </div>
+                    </div>
+                    <div className="item-actions">
+                      <button
+                        type="button"
+                        className="btn-icon"
+                        onClick={() => {
+                          setEditingId(race.id);
+                          setFormData({
+                            racerName: race.racerName,
+                            raceName: race.raceName,
+                            score: race.score,
+                            raceDate: race.raceDate,
+                            categorie: race.categorie || "",
+                            team: race.team || "",
+                          });
+                          setSelectedRacer(race.racerName);
+                        }}
+                      >
+                        ✏ Bewerk
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-icon danger"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(
+                              `${config.apiBaseUrl}/api/races?id=${race.id}`,
+                              { method: "DELETE", headers }
+                            );
+                            if (!response.ok && response.status !== 204) {
+                              throw new Error("Verwijderen mislukt");
+                            }
+                            setRaceHistory((prev) => prev.filter((item) => item.id !== race.id));
+                            if (editingId === race.id) cancelEdit();
+                          } catch (err) {
+                            setError(err.message);
+                          }
+                        }}
+                      >
+                        × Verwijder
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* ── Form Panel ── */}
+        <section className="panel form-panel">
+          {editingId && (
+            <div className="form-editing-banner">
+              <span>✏ Bezig met wijzigen</span>
+              <button type="button" className="btn-cancel-small" onClick={cancelEdit}>
+                Annuleer
+              </button>
             </div>
           )}
-
-          <div className="results">
-            {isLoading && <p>Bezig met laden...</p>}
-            {!isLoading && selectedRacer && raceHistory.length === 0 && (
-              <p>Nog geen registraties gevonden voor {selectedRacer}.</p>
-            )}
-            {!isLoading && raceHistory.length > 0 && (
-              <>
-                <h3>{showingRecent ? "Recente registraties" : `Registraties voor ${selectedRacer}`}</h3>
-                <ul className="history-list">
-                  {raceHistory.map((race) => (
-                    <li key={race.id} className="history-item">
-                      <div>
-                        <p className="race-name">{race.raceName}</p>
-                        <p className="muted">
-                          {formatDate(race.raceDate)}
-                          {race.categorie ? ` • ${race.categorie}` : ""} {race.team ? `• ${race.team}` : ""}
-                        </p>
-                      </div>
-                      <div className="history-actions">
-                        <span className="race-score">{race.score}</span>
-                        <div className="action-buttons">
-                          <button
-                            type="button"
-                            className="ghost"
-                            onClick={() => {
-                              setEditingId(race.id);
-                              setFormData({
-                                racerName: race.racerName,
-                                raceName: race.raceName,
-                                score: race.score,
-                                raceDate: race.raceDate,
-                                categorie: race.categorie || "",
-                                team: race.team || "",
-                              });
-                              setSelectedRacer(race.racerName);
-                            }}
-                          >
-                            Bewerken
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost danger"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`${config.apiBaseUrl}/api/races?id=${race.id}`, {
-                                  method: "DELETE",
-                                  headers,
-                                });
-                                if (!response.ok && response.status !== 204) {
-                                  throw new Error("Verwijderen mislukt");
-                                }
-                                setRaceHistory((prev) => prev.filter((item) => item.id !== race.id));
-                                if (editingId === race.id) {
-                                  setEditingId(null);
-                                  setFormData({ racerName: "", raceName: "", score: "", raceDate: "", categorie: "", team: "" });
-                                }
-                              } catch (err) {
-                                setError(err.message);
-                              }
-                            }}
-                          >
-                            Verwijderen
-                          </button>
-                        </div>
-                      </div>
-                    </li>
+          <div className="panel-header">
+            <h2>{editingId ? "Race wijzigen" : "Race toevoegen"}</h2>
+            <p className="muted">
+              {editingId ? "Pas de gegevens aan en sla op." : "Vul de wedstrijdgegevens in."}
+            </p>
+          </div>
+          <div className="panel-body">
+            <form className="form-grid" onSubmit={handleAddRace}>
+              <label className="form-field">
+                Naam renner
+                <input
+                  type="text"
+                  value={formData.racerName}
+                  onChange={(e) => {
+                    setFormData({ ...formData, racerName: e.target.value });
+                    fetchSuggestions(e.target.value);
+                  }}
+                  placeholder="Bijv. Annemiek van Vleuten"
+                  list="racer-name-suggestions"
+                />
+                <datalist id="racer-name-suggestions">
+                  {suggestions.map((name) => (
+                    <option value={name} key={`form-${name}`} />
                   ))}
-                </ul>
-              </>
-            )}
+                </datalist>
+              </label>
+
+              <label className="form-field">
+                Wedstrijdnaam
+                <input
+                  type="text"
+                  value={formData.raceName}
+                  onChange={(e) => setFormData({ ...formData, raceName: e.target.value })}
+                  placeholder="Bijv. Ronde van Vlaanderen"
+                  list="race-name-suggestions"
+                />
+                <datalist id="race-name-suggestions">
+                  {raceNameSuggestions.map((name) => (
+                    <option value={name} key={`race-${name}`} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label className="form-field">
+                Resultaat
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  step="1"
+                  value={formData.score}
+                  onChange={(e) => setFormData({ ...formData, score: e.target.value })}
+                  placeholder="Bijv. 1"
+                />
+              </label>
+
+              <label className="form-field">
+                Datum
+                <input
+                  type="date"
+                  value={formData.raceDate}
+                  onChange={(e) => setFormData({ ...formData, raceDate: e.target.value })}
+                />
+              </label>
+
+              <label className="form-field">
+                Categorie
+                <input
+                  type="text"
+                  value={formData.categorie}
+                  onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
+                  placeholder="Bijv. Elite, U23"
+                />
+              </label>
+
+              <label className="form-field">
+                Team
+                <input
+                  type="text"
+                  value={formData.team}
+                  onChange={(e) => setFormData({ ...formData, team: e.target.value })}
+                  placeholder="Bijv. Team DSM"
+                />
+              </label>
+
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  {editingId ? "Opslaan wijzigingen" : "+ Race opslaan"}
+                </button>
+                {editingId && (
+                  <button type="button" className="btn-cancel" onClick={cancelEdit}>
+                    Annuleren
+                  </button>
+                )}
+              </div>
+            </form>
           </div>
-        </section>
-
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <h2>Race toevoegen</h2>
-              <p className="muted">Vul de gegevens van de renner en race in.</p>
-            </div>
-          </div>
-
-          <form className="form-grid" onSubmit={handleAddRace}>
-            <label>
-              Naam renner
-              <input
-                type="text"
-                value={formData.racerName}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({ ...formData, racerName: value });
-                  fetchSuggestions(value);
-                }}
-                placeholder="Bijv. Annemiek van Vleuten"
-                list="racer-name-suggestions"
-              />
-              <datalist id="racer-name-suggestions">
-                {suggestions.map((name) => (
-                  <option value={name} key={`form-${name}`} />
-                ))}
-              </datalist>
-            </label>
-            <label>
-              Wedstrijdnaam
-              <input
-                type="text"
-                value={formData.raceName}
-                onChange={(e) => setFormData({ ...formData, raceName: e.target.value })}
-                placeholder="Bijv. Ronde van Vlaanderen"
-                list="race-name-suggestions"
-              />
-              <datalist id="race-name-suggestions">
-                {raceNameSuggestions.map((name) => (
-                  <option value={name} key={`race-${name}`} />
-                ))}
-              </datalist>
-            </label>
-            <label>
-              Resultaat
-              <input
-                type="number"
-                inputMode="numeric"
-                step="1"
-                value={formData.score}
-                onChange={(e) => setFormData({ ...formData, score: e.target.value })}
-                placeholder="Bijv. 1e plaats"
-              />
-            </label>
-            <label>
-              Categorie
-              <input
-                type="text"
-                value={formData.categorie}
-                onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
-                placeholder="Bijv. Elite, U23, Junior"
-              />
-            </label>
-            <label>
-              Team
-              <input
-                type="text"
-                value={formData.team}
-                onChange={(e) => setFormData({ ...formData, team: e.target.value })}
-                placeholder="Bijv. Team DSM"
-              />
-            </label>
-            <label>
-              Datum
-              <input
-                type="date"
-                value={formData.raceDate}
-                onChange={(e) => setFormData({ ...formData, raceDate: e.target.value })}
-              />
-            </label>
-            <button type="submit" className="primary add-button">
-              {editingId ? "Opslaan wijzigingen" : "+ Opslaan"}
-            </button>
-            {editingId && (
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => {
-                  setEditingId(null);
-                  setFormData({ racerName: "", raceName: "", score: "", raceDate: "", categorie: "", team: "" });
-                }}
-              >
-                Annuleren
-              </button>
-            )}
-          </form>
-
-          {statusMessage && <p className="success">{statusMessage}</p>}
-          {error && <p className="error">{error}</p>}
         </section>
       </main>
+
+      {statusMessage && (
+        <div className="toast success">✓ {statusMessage}</div>
+      )}
+      {error && (
+        <div className="toast error">⚠ {error}</div>
+      )}
     </div>
   );
 };

@@ -7,47 +7,45 @@ const LoginPage = ({ onLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     try {
       const response = await fetch(`${config.apiBaseUrl}/api/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
 
-      if (!response.ok) {
-        throw new Error('Ongeldige code');
-      }
+      if (!response.ok) throw new Error('Ongeldige code');
 
       const { name } = await response.json();
-      if (!name) {
-        throw new Error('Geen naam gevonden');
-      }
+      if (!name) throw new Error('Geen naam gevonden');
 
       onLogin(name);
-    } catch (err) {
+    } catch {
       setError('Ongeldige code. Probeer opnieuw.');
     }
   };
 
   return (
-    <div className="container login-container">
-      <h1>Wieler Uitslagenlog</h1>
-      <p className="muted">Log in met je persoonlijke code om jouw rennersoverzicht te openen.</p>
-      <form onSubmit={handleSubmit}>
-        <div>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-icon">🚴</div>
+        <h1>Wieler Uitslagenlog</h1>
+        <p className="muted">Log in met je persoonlijke code om jouw rennersoverzicht te openen.</p>
+        <form onSubmit={handleSubmit}>
           <input
+            className="login-input"
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="Voer je login code in"
+            placeholder="CODE"
             maxLength={4}
+            autoFocus
           />
-        </div>
-        {error && <div className="error">{error}</div>}
-        <button type="submit">Login</button>
-      </form>
+          {error && <div className="login-error">{error}</div>}
+          <button type="submit" className="login-btn">Inloggen</button>
+        </form>
+      </div>
     </div>
   );
 };
