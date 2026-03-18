@@ -13,6 +13,22 @@ const formatDate = (dateString) => {
   });
 };
 
+const getPositionClass = (score) => {
+  if (score === 1) return "pos-gold";
+  if (score === 2) return "pos-silver";
+  if (score === 3) return "pos-bronze";
+  if (score <= 10) return "pos-top";
+  return "";
+};
+
+const getScoreBadgeClass = (score) => {
+  if (score === 1) return "score-badge score-gold";
+  if (score === 2) return "score-badge score-silver";
+  if (score === 3) return "score-badge score-bronze";
+  if (score <= 10) return "score-badge score-top";
+  return "score-badge";
+};
+
 const App = () => {
   const [playerName, setPlayerName] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,13 +48,14 @@ const App = () => {
   const [statusMessage, setStatusMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [formRacerOpen, setFormRacerOpen] = useState(false);
+  const [formRaceNameOpen, setFormRaceNameOpen] = useState(false);
 
   useEffect(() => {
     const savedName = localStorage.getItem("playerName");
     if (savedName) setPlayerName(savedName);
   }, []);
 
-  // Auto-dismiss toasts
   useEffect(() => {
     if (!statusMessage) return;
     const t = setTimeout(() => setStatusMessage(""), 4000);
@@ -63,6 +80,13 @@ const App = () => {
     const unique = new Set(raceHistory.map((race) => race.raceName));
     return Array.from(unique);
   }, [raceHistory]);
+
+  const filteredRaceNameSuggestions = useMemo(() => {
+    if (!formData.raceName || formData.raceName.length < 2) return raceNameSuggestions;
+    return raceNameSuggestions.filter((name) =>
+      name.toLowerCase().includes(formData.raceName.toLowerCase())
+    );
+  }, [formData.raceName, raceNameSuggestions]);
 
   const prefillState = React.useRef({ lastRacer: "", applied: false });
 
@@ -245,11 +269,19 @@ const App = () => {
     <div className="page">
       <header className="app-header">
         <div className="header-brand">
-          <span className="header-brand-icon">🚴</span>
-          <h1>Wieler Uitslagenlog</h1>
+          <div className="header-logo">
+            <span className="header-logo-icon">🚴</span>
+          </div>
+          <div className="header-title-group">
+            <h1>Wieler Uitslagenlog</h1>
+            <span className="header-subtitle">Resultatenregistratie</span>
+          </div>
         </div>
         <div className="header-right">
-          <span className="welcome-badge">👋 {playerName}</span>
+          <div className="welcome-badge">
+            <span className="welcome-avatar">{playerName.charAt(0).toUpperCase()}</span>
+            <span className="welcome-name">{playerName}</span>
+          </div>
           <button onClick={handleLogout} className="logout-button">
             Uitloggen
           </button>
@@ -260,8 +292,13 @@ const App = () => {
         {/* ── History Panel ── */}
         <section className="panel">
           <div className="panel-header">
-            <h2>Racers &amp; resultaten</h2>
-            <p className="muted">Zoek op naam of bekijk recente registraties.</p>
+            <div className="panel-header-content">
+              <h2>Racers &amp; resultaten</h2>
+              <p className="muted">Zoek op naam of bekijk recente registraties.</p>
+            </div>
+            {raceHistory.length > 0 && (
+              <span className="results-count">{raceHistory.length}</span>
+            )}
           </div>
           <div className="panel-body">
             <form onSubmit={handleSearch} className="search-bar">
@@ -270,13 +307,7 @@ const App = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Zoek naar een renner..."
-                list="racer-suggestions"
               />
-              <datalist id="racer-suggestions">
-                {suggestions.map((name) => (
-                  <option value={name} key={name} />
-                ))}
-              </datalist>
               <button type="submit">Zoeken</button>
             </form>
 
@@ -302,8 +333,10 @@ const App = () => {
               <h3>
                 {showingRecent ? "Recente registraties" : `Resultaten – ${selectedRacer}`}
               </h3>
-              {raceHistory.length > 0 && (
-                <span className="results-count">{raceHistory.length}</span>
+              {selectedRacer && (
+                <button type="button" className="btn-clear" onClick={fetchRecentEntries}>
+                  Wis filter
+                </button>
               )}
             </div>
 
@@ -334,15 +367,17 @@ const App = () => {
                 {raceHistory.map((race) => (
                   <li
                     key={race.id}
-                    className={`history-item${editingId === race.id ? " editing" : ""}`}
+                    className={`history-item ${getPositionClass(race.score)}${editingId === race.id ? " editing" : ""}`}
                   >
-                    <div className="score-badge">{race.score}</div>
+                    <div className={getScoreBadgeClass(race.score)}>
+                      {race.score === 1 ? "🥇" : race.score === 2 ? "🥈" : race.score === 3 ? "🥉" : race.score}
+                    </div>
                     <div className="race-info">
                       <p className="race-racer">{race.racerName}</p>
                       <p className="race-meta-name">{race.raceName}</p>
                       <div className="race-tags">
                         {race.categorie && <span className="tag">{race.categorie}</span>}
-                        {race.team && <span className="tag">{race.team}</span>}
+                        {race.team && <span className="tag tag-team">{race.team}</span>}
                         <span className="tag tag-date">{formatDate(race.raceDate)}</span>
                       </div>
                     </div>
@@ -350,6 +385,7 @@ const App = () => {
                       <button
                         type="button"
                         className="btn-icon"
+                        title="Bewerk"
                         onClick={() => {
                           setEditingId(race.id);
                           setFormData({
@@ -368,6 +404,7 @@ const App = () => {
                       <button
                         type="button"
                         className="btn-icon danger"
+                        title="Verwijder"
                         onClick={async () => {
                           try {
                             const response = await fetch(
@@ -405,46 +442,111 @@ const App = () => {
             </div>
           )}
           <div className="panel-header">
-            <h2>{editingId ? "Race wijzigen" : "Race toevoegen"}</h2>
-            <p className="muted">
-              {editingId ? "Pas de gegevens aan en sla op." : "Vul de wedstrijdgegevens in."}
-            </p>
+            <div className="panel-header-content">
+              <h2>{editingId ? "Race wijzigen" : "Race toevoegen"}</h2>
+              <p className="muted">
+                {editingId ? "Pas de gegevens aan en sla op." : "Vul de wedstrijdgegevens in."}
+              </p>
+            </div>
           </div>
           <div className="panel-body">
             <form className="form-grid" onSubmit={handleAddRace}>
-              <label className="form-field">
+
+              <div className="form-section-label">Renner</div>
+
+              <label className="form-field form-field--full">
                 Naam renner
-                <input
-                  type="text"
-                  value={formData.racerName}
-                  onChange={(e) => {
-                    setFormData({ ...formData, racerName: e.target.value });
-                    fetchSuggestions(e.target.value);
-                  }}
-                  placeholder="Bijv. Annemiek van Vleuten"
-                  list="racer-name-suggestions"
-                />
-                <datalist id="racer-name-suggestions">
-                  {suggestions.map((name) => (
-                    <option value={name} key={`form-${name}`} />
-                  ))}
-                </datalist>
+                <div className="autocomplete-wrap">
+                  <input
+                    type="text"
+                    value={formData.racerName}
+                    onChange={(e) => {
+                      setFormData({ ...formData, racerName: e.target.value });
+                      fetchSuggestions(e.target.value);
+                      setFormRacerOpen(true);
+                    }}
+                    onFocus={() => { if (suggestions.length > 0) setFormRacerOpen(true); }}
+                    onBlur={() => setTimeout(() => setFormRacerOpen(false), 150)}
+                    placeholder="Bijv. Annemiek van Vleuten"
+                  />
+                  {formRacerOpen && suggestions.length > 0 && (
+                    <ul className="autocomplete-list">
+                      {suggestions.map((name) => (
+                        <li key={name}>
+                          <button
+                            type="button"
+                            className="autocomplete-item"
+                            onMouseDown={() => {
+                              setFormData((prev) => ({ ...prev, racerName: name }));
+                              fetchSuggestions(name);
+                              setFormRacerOpen(false);
+                            }}
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </label>
 
               <label className="form-field">
-                Wedstrijdnaam
+                Categorie
                 <input
                   type="text"
-                  value={formData.raceName}
-                  onChange={(e) => setFormData({ ...formData, raceName: e.target.value })}
-                  placeholder="Bijv. Ronde van Vlaanderen"
-                  list="race-name-suggestions"
+                  value={formData.categorie}
+                  onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
+                  placeholder="Bijv. Elite, U23"
                 />
-                <datalist id="race-name-suggestions">
-                  {raceNameSuggestions.map((name) => (
-                    <option value={name} key={`race-${name}`} />
-                  ))}
-                </datalist>
+              </label>
+
+              <label className="form-field">
+                Team
+                <input
+                  type="text"
+                  value={formData.team}
+                  onChange={(e) => setFormData({ ...formData, team: e.target.value })}
+                  placeholder="Bijv. Team DSM"
+                />
+              </label>
+
+              <div className="form-divider" />
+              <div className="form-section-label">Wedstrijd</div>
+
+              <label className="form-field form-field--full">
+                Wedstrijdnaam
+                <div className="autocomplete-wrap">
+                  <input
+                    type="text"
+                    value={formData.raceName}
+                    onChange={(e) => {
+                      setFormData({ ...formData, raceName: e.target.value });
+                      setFormRaceNameOpen(true);
+                    }}
+                    onFocus={() => { if (filteredRaceNameSuggestions.length > 0) setFormRaceNameOpen(true); }}
+                    onBlur={() => setTimeout(() => setFormRaceNameOpen(false), 150)}
+                    placeholder="Bijv. Ronde van Vlaanderen"
+                  />
+                  {formRaceNameOpen && filteredRaceNameSuggestions.length > 0 && (
+                    <ul className="autocomplete-list">
+                      {filteredRaceNameSuggestions.map((name) => (
+                        <li key={name}>
+                          <button
+                            type="button"
+                            className="autocomplete-item"
+                            onMouseDown={() => {
+                              setFormData((prev) => ({ ...prev, raceName: name }));
+                              setFormRaceNameOpen(false);
+                            }}
+                          >
+                            {name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </label>
 
               <label className="form-field">
@@ -465,26 +567,6 @@ const App = () => {
                   type="date"
                   value={formData.raceDate}
                   onChange={(e) => setFormData({ ...formData, raceDate: e.target.value })}
-                />
-              </label>
-
-              <label className="form-field">
-                Categorie
-                <input
-                  type="text"
-                  value={formData.categorie}
-                  onChange={(e) => setFormData({ ...formData, categorie: e.target.value })}
-                  placeholder="Bijv. Elite, U23"
-                />
-              </label>
-
-              <label className="form-field">
-                Team
-                <input
-                  type="text"
-                  value={formData.team}
-                  onChange={(e) => setFormData({ ...formData, team: e.target.value })}
-                  placeholder="Bijv. Team DSM"
                 />
               </label>
 
