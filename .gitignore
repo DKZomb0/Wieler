@@ -6,4 +6,5 @@
 backend/node_modules/
 demol-voting/frontend/node_modules/
 
-# End of https://www.toptal.com/developers/gitignore/api/azurefunctions
+# End of https://www.toptal.com/developers/gitignore/api/azurefunctions.vercel
+node_modules/
