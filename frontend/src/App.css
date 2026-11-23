@@ -604,10 +604,8 @@ label.form-field input:focus {
   padding: 16px;
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;
-  font-size: 28px;
-  font-weight: 800;
-  text-align: center;
-  letter-spacing: 10px;
+  font-size: 16px;
+  font-weight: 500;
   outline: none;
   transition: border-color 0.2s, background 0.2s;
   background: #f8fafc;
@@ -652,6 +650,29 @@ label.form-field input:focus {
 .login-btn:hover {
   background: #1d4ed8;
   transform: translateY(-1px);
+}
+
+.login-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.login-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 14px;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 /* ─── RESPONSIVE ─── */

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
+import supabase from "./supabase";
 import config from "./config";
 import "./App.css";
 
@@ -14,7 +15,8 @@ const formatDate = (dateString) => {
 };
 
 const App = () => {
-  const [playerName, setPlayerName] = useState(null);
+  const [session, setSession] = useState(undefined); // undefined = still loading
+  const playerName = session?.user?.email || null;
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [selectedRacer, setSelectedRacer] = useState("");
@@ -34,8 +36,9 @@ const App = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const savedName = localStorage.getItem("playerName");
-    if (savedName) setPlayerName(savedName);
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => data.subscription.unsubscribe();
   }, []);
 
   // Auto-dismiss toasts
@@ -52,12 +55,12 @@ const App = () => {
   }, [error]);
 
   const headers = useMemo(() => {
-    if (!playerName) return {};
+    if (!session) return {};
     return {
       "Content-Type": "application/json",
-      "X-User-Name": playerName,
+      Authorization: `Bearer ${session.access_token}`,
     };
-  }, [playerName]);
+  }, [session]);
 
   const raceNameSuggestions = useMemo(() => {
     const unique = new Set(raceHistory.map((race) => race.raceName));
@@ -90,18 +93,12 @@ const App = () => {
     }
   }, [formData, raceHistory]);
 
-  const handleLogin = (name) => {
-    setPlayerName(name);
-    localStorage.setItem("playerName", name);
-  };
-
   const handleLogout = () => {
-    setPlayerName(null);
+    supabase.auth.signOut();
     setSelectedRacer("");
     setShowingRecent(true);
     setRaceHistory([]);
     setSuggestions([]);
-    localStorage.removeItem("playerName");
   };
 
   const cancelEdit = () => {
@@ -237,9 +234,8 @@ const App = () => {
     fetchRecentEntries();
   }, [playerName, fetchRecentEntries]);
 
-  if (!playerName) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
+  if (session === undefined) return null;
+  if (!playerName) return <LoginPage />;
 
   return (
     <div className="page">

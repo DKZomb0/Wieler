@@ -3,8 +3,10 @@ const db = require("./_db");
 const FIELDS = ["racerName", "raceName", "score", "raceDate", "categorie", "team"];
 
 module.exports = async (req, res) => {
-  const owner = req.headers["x-user-name"];
-  if (!owner) return res.status(400).json({ error: "Missing user context" });
+  const token = (req.headers.authorization || "").replace(/^Bearer /, "");
+  const { data: auth } = await db.auth.getUser(token);
+  if (!auth?.user) return res.status(401).json({ error: "Not logged in" });
+  const owner = auth.user.id;
 
   const { search, racer, id } = req.query;
   const table = () => db.from("race_results");

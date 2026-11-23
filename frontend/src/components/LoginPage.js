@@ -1,29 +1,23 @@
 import React, { useState } from 'react';
-import config from '../config';
+import supabase from '../supabase';
 
-const LoginPage = ({ onLogin }) => {
-  const [code, setCode] = useState('');
+const LoginPage = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [signUp, setSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-
-      if (!response.ok) throw new Error('Ongeldige code');
-
-      const { name } = await response.json();
-      if (!name) throw new Error('Geen naam gevonden');
-
-      onLogin(name);
-    } catch {
-      setError('Ongeldige code. Probeer opnieuw.');
-    }
+    setInfo('');
+    const { data, error: err } = signUp
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+    if (err) return setError(err.message);
+    // With email confirmation on, sign-up returns no session until the link is clicked.
+    if (signUp && !data.session) setInfo('Check je e-mail om je account te bevestigen.');
   };
 
   return (
@@ -31,20 +25,39 @@ const LoginPage = ({ onLogin }) => {
       <div className="login-card">
         <div className="login-icon">🚴</div>
         <h1>Wieler Uitslagenlog</h1>
-        <p className="muted">Log in met je persoonlijke code om jouw rennersoverzicht te openen.</p>
+        <p className="muted">
+          {signUp ? 'Maak een account aan.' : 'Log in om jouw rennersoverzicht te openen.'}
+        </p>
         <form onSubmit={handleSubmit}>
           <input
             className="login-input"
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="CODE"
-            maxLength={4}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="E-mail"
+            autoComplete="email"
+            required
             autoFocus
           />
+          <input
+            className="login-input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Wachtwoord"
+            autoComplete={signUp ? 'new-password' : 'current-password'}
+            minLength={6}
+            required
+          />
           {error && <div className="login-error">{error}</div>}
-          <button type="submit" className="login-btn">Inloggen</button>
+          {info && <div className="login-info">{info}</div>}
+          <button type="submit" className="login-btn">
+            {signUp ? 'Account aanmaken' : 'Inloggen'}
+          </button>
         </form>
+        <button type="button" className="login-link" onClick={() => setSignUp(!signUp)}>
+          {signUp ? 'Al een account? Inloggen' : 'Nog geen account? Aanmelden'}
+        </button>
       </div>
     </div>
   );

@@ -1,12 +1,8 @@
--- Quoted camelCase columns so rows match the JSON shape the frontend already uses.
-create table announcers (
-  name text not null,
-  "loginCode" text primary key
-);
-
+-- Users live in Supabase Auth (auth.users); each user owns their own races.
+-- Quoted camelCase columns so rows match the JSON shape the frontend uses.
 create table race_results (
   id uuid primary key default gen_random_uuid(),
-  owner text not null,
+  owner uuid not null references auth.users (id) on delete cascade,
   "racerName" text not null,
   "raceName" text not null,
   score int not null,
@@ -18,6 +14,5 @@ create table race_results (
 );
 create index on race_results (owner, "raceDate" desc);
 
--- Only the server (service role key) touches these; no policies = no public access.
-alter table announcers enable row level security;
+-- Only the API (service role key) touches this table; no policies = no direct public access.
 alter table race_results enable row level security;
