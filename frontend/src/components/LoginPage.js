@@ -21,45 +21,34 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-icon">🚴</div>
-        <h1>Wieler Uitslagenlog</h1>
-        <p className="muted">
-          {signUp ? 'Maak een account aan.' : 'Log in om jouw rennersoverzicht te openen.'}
+    <main className="login">
+      <div className="login-panel">
+        <h1 className="brand brand-large">Wieler Uitslagenlog</h1>
+        <p className="login-lead">
+          {signUp ? 'Maak een account aan om resultaten bij te houden.' : 'Log in om je resultaten te bekijken.'}
         </p>
-        <form onSubmit={handleSubmit}>
-          <input
-            className="login-input"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="E-mail"
-            autoComplete="email"
-            required
-            autoFocus
-          />
-          <input
-            className="login-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Wachtwoord"
-            autoComplete={signUp ? 'new-password' : 'current-password'}
-            minLength={6}
-            required
-          />
-          {error && <div className="login-error">{error}</div>}
-          {info && <div className="login-info">{info}</div>}
-          <button type="submit" className="login-btn">
+        <form className="form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>E-mail</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email" required autoFocus />
+          </label>
+          <label className="field">
+            <span>Wachtwoord</span>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              autoComplete={signUp ? 'new-password' : 'current-password'} minLength={6} required />
+          </label>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          {info && <p className="form-info" role="status">{info}</p>}
+          <button type="submit" className="btn btn-primary btn-wide">
             {signUp ? 'Account aanmaken' : 'Inloggen'}
           </button>
         </form>
-        <button type="button" className="login-link" onClick={() => setSignUp(!signUp)}>
-          {signUp ? 'Al een account? Inloggen' : 'Nog geen account? Aanmelden'}
+        <button type="button" className="btn btn-link" onClick={() => setSignUp(!signUp)}>
+          {signUp ? 'Al een account? Inloggen' : 'Nog geen account? Maak er een aan'}
         </button>
       </div>
-    </div>
+    </main>
   );
 };
 
