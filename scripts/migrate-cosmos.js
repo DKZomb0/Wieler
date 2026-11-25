@@ -1,13 +1,13 @@
 // One-off: copy Cosmos RaceResults for one owner straight into Supabase race_results.
-// Usage: node scripts/migrate-cosmos.js "Cosmos owner name" user@email.com [--dry]
+// Usage: node scripts/migrate-cosmos.js "Cosmos owner name" "Group name" [--dry]
 // Env: COSMOS_DB_ENDPOINT, COSMOS_DB_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 const { CosmosClient } = require("@azure/cosmos");
 const { createClient } = require("@supabase/supabase-js");
 
-const [ownerName, email] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const [ownerName, groupName] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const dry = process.argv.includes("--dry");
-if (!ownerName || !email) {
-  console.error('Usage: node scripts/migrate-cosmos.js "Owner name" user@email.com [--dry]');
+if (!ownerName || !groupName) {
+  console.error('Usage: node scripts/migrate-cosmos.js "Owner name" "Group name" [--dry]');
   process.exit(1);
 }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -34,22 +34,21 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (dry) return;
 
   const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-  const { data, error } = await db.auth.admin.listUsers({ perPage: 1000 });
+  const { data: group, error } = await db.from("groups").select("id").eq("name", groupName).maybeSingle();
   if (error) throw error;
-  const user = data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-  if (!user) throw new Error(`No Supabase user with email ${email}. Sign up first.`);
+  if (!group) throw new Error(`No group named "${groupName}".`);
 
   const withId = rows.filter((r) => r.id), withoutId = rows.filter((r) => !r.id);
   for (let i = 0; i < withId.length; i += 500) {
-    const batch = withId.slice(i, i + 500).map((r) => ({ ...r, owner: user.id }));
+    const batch = withId.slice(i, i + 500).map((r) => ({ ...r, group_id: group.id }));
     const { error } = await db.from("race_results").upsert(batch, { onConflict: "id" });
     if (error) throw error;
     console.log(`upserted ${Math.min(i + 500, withId.length)}/${withId.length}`);
   }
   if (withoutId.length) { // no stable id, so these would duplicate on a re-run
-    const { error } = await db.from("race_results").insert(withoutId.map((r) => ({ ...r, owner: user.id })));
+    const { error } = await db.from("race_results").insert(withoutId.map((r) => ({ ...r, group_id: group.id })));
     if (error) throw error;
   }
-  const { count } = await db.from("race_results").select("*", { count: "exact", head: true }).eq("owner", user.id);
-  console.log(`done: ${user.email} now has ${count} races`);
+  const { count } = await db.from("race_results").select("*", { count: "exact", head: true }).eq("group_id", group.id);
+  console.log(`done: group "${groupName}" now has ${count} races`);
 })().catch((e) => { console.error(e.message); process.exit(1); });

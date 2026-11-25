@@ -17,6 +17,8 @@ const formatDate = (dateString) => {
 const App = () => {
   const [session, setSession] = useState(undefined); // undefined = still loading
   const playerName = session?.user?.email || null;
+  const [memberships, setMemberships] = useState(null); // null = still loading
+  const canWrite = !!memberships?.some((m) => m.can_write);
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [selectedRacer, setSelectedRacer] = useState("");
@@ -41,6 +43,11 @@ const App = () => {
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
     return () => data.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session) return setMemberships(null);
+    supabase.from("group_members").select("can_write").then(({ data }) => setMemberships(data || []));
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-dismiss toasts
   useEffect(() => {
@@ -286,7 +293,7 @@ const App = () => {
         </div>
       </header>
 
-      <main className="layout">
+      <main className={`layout${canWrite ? "" : " layout-readonly"}`}>
         <section className="results" aria-labelledby="results-title">
           <form onSubmit={handleSearch} className="search" role="search">
             <label htmlFor="search" className="sr-only">Zoek een renner</label>
@@ -338,6 +345,10 @@ const App = () => {
             )}
           </div>
 
+          {memberships?.length === 0 && (
+            <p className="note">Je bent nog niet toegevoegd aan een groep. Vraag een beheerder om toegang.</p>
+          )}
+
           {isLoading && <p className="note" role="status">Laden…</p>}
 
           {!isLoading && raceHistory.length === 0 && (
@@ -372,9 +383,11 @@ const App = () => {
                     </p>
                   </div>
                   <div className="row-actions">
-                    <button type="button" className="btn btn-small" onClick={() => startEdit(race)}>
-                      Wijzig
-                    </button>
+                    {canWrite && (
+                      <button type="button" className="btn btn-small" onClick={() => startEdit(race)}>
+                        Wijzig
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
@@ -382,7 +395,7 @@ const App = () => {
           )}
         </section>
 
-        <section
+        {canWrite && <section
           className={`sheet${formOpen ? " is-open" : ""}`}
           aria-labelledby="form-title"
         >
@@ -464,15 +477,15 @@ const App = () => {
               )}
             </div>
           </form>
-        </section>
+        </section>}
       </main>
 
-      {!formOpen && (
+      {canWrite && !formOpen && (
         <button type="button" className="fab btn btn-primary" onClick={() => setFormOpen(true)}>
           Race toevoegen
         </button>
       )}
-      {formOpen && <div className="scrim" onClick={cancelEdit} aria-hidden="true" />}
+      {canWrite && formOpen && <div className="scrim" onClick={cancelEdit} aria-hidden="true" />}
 
       {statusMessage && <div className="toast" role="status">{statusMessage}</div>}
       {error && <div className="toast toast-error" role="alert">{error}</div>}

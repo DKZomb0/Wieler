@@ -195,6 +195,7 @@ input {
     padding: 20px; border: 1px solid var(--line); border-radius: var(--radius);
     transform: none; visibility: visible; transition: none;
   }
+  .layout-readonly { grid-template-columns: minmax(0, 760px); justify-content: center; }
   .sheet-close, .fab, .scrim { display: none; }
   .form-actions { flex-direction: column; }
 }
